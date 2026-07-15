@@ -470,7 +470,7 @@
         Every round you complete, one new random color is added to the end of the sequence &mdash; there's no time limit, so take your time.<br><br>
         Play with mouse, touch, or the keyboard (<b>Q</b>=green, <b>W</b>=red, <b>A</b>=yellow, <b>S</b>=blue).<br><br>
         With <b>Strict Mode</b> on, one mistake ends the run. Turn it off in Settings for a gentler game that just replays the current round after a slip.<br><br>
-        Pick a <b>Difficulty</b> in Settings: Normal plays at the classic pace, Hard is noticeably faster, Extra Hard flashes each light for half a second or less right from round one, and Hell Mode flashes for a quarter of a second or less. <b>Progressive</b> plays through all of them in one run, starting easy and ramping up to Hell Mode's extreme speed as you go. <b>Unbeatable</b> flashes every light for exactly one millisecond &mdash; it's a joke mode, not a real challenge.
+        Pick a <b>Difficulty</b> in Settings: Normal plays at the classic pace, Hard is noticeably faster, Extra Hard flashes each light for half a second or less right from round one, and Hell Mode flashes for a quarter of a second or less. <b>Progressive</b> plays through all of them in one run, starting easy and ramping up to Hell Mode's extreme speed as you go. <b>Unbeatable</b> flashes every light for exactly 80 milliseconds &mdash; brutally fast, but not literally impossible.
       </p>
       <div class="btnrow"><button class="solid alt" id="btn-howto-back">Back</button></div>
     </div>
@@ -557,7 +557,7 @@
     hard:       { mult:0.75,  floor:0.32 },
     extraHard:  { mult:0.55,  floor:0.18 },
     hell:       { mult:0.40,  floor:0.08 },
-    unbeatable: { mult:0.002, floor:0.002 } // flashes for exactly 1ms, every round — not meant to be won
+    unbeatable: { mult:0.16, floor:0.16 } // flashes for exactly 80ms, every round
   };
 
   // "Progressive" isn't its own speed curve — it auto-advances through the
@@ -756,7 +756,7 @@
     hudHigh.textContent = String(game.highScore).padStart(3,'0');
     setDigits(ledWindow, game.score, 3);
     const activeDiff = resolvedDifficulty(round);
-    const diffTag = activeDiff==='hard' ? ' · HARD' : activeDiff==='extraHard' ? ' · XTRA' : activeDiff==='hell' ? ' · HELL' : activeDiff==='unbeatable' ? ' · 1MS' : '';
+    const diffTag = activeDiff==='hard' ? ' · HARD' : activeDiff==='extraHard' ? ' · XTRA' : activeDiff==='hell' ? ' · HELL' : activeDiff==='unbeatable' ? ' · 80MS' : '';
     ledCaption.textContent = 'RD ' + String(round).padStart(2,'0') + ' · HI ' + String(game.highScore).padStart(3,'0') + diffTag;
   }
 
