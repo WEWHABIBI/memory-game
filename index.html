@@ -362,7 +362,20 @@
     padding:10px 2px; border-bottom:1px solid rgba(255,255,255,0.06);
     font-size:13px; text-align:left;
   }
-  .toggle-row:last-of-type{ border-bottom:none; }
+  .toggle-list .toggle-row:last-child{ border-bottom:none; }
+  .toggle-row.stacked{ flex-direction:column; align-items:stretch; gap:8px; }
+
+  .segmented{ display:flex; gap:6px; }
+  .seg-btn{
+    flex:1;
+    font-family:inherit; font-size:11px; font-weight:600;
+    color:var(--ink-dim); background:#1c1e24;
+    border:1px solid rgba(255,255,255,0.1); border-radius:6px;
+    padding:9px 4px; cursor:pointer; touch-action:manipulation;
+    min-height:38px;
+  }
+  .seg-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .seg-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .switch{
     position:relative; width:46px; height:26px; flex:none;
     background:#2a2d34; border-radius:20px; border:none; cursor:pointer;
@@ -452,7 +465,7 @@
         Every round you complete, one new random color is added to the end of the sequence &mdash; there's no time limit, so take your time.<br><br>
         Play with mouse, touch, or the keyboard (<b>Q</b>=green, <b>W</b>=red, <b>A</b>=yellow, <b>S</b>=blue).<br><br>
         With <b>Strict Mode</b> on, one mistake ends the run. Turn it off in Settings for a gentler game that just replays the current round after a slip.<br><br>
-        Flip on <b>Hard Mode</b> in Settings for a noticeably faster playback speed from round one.
+        Pick a <b>Difficulty</b> in Settings: Normal plays at the classic pace, Hard is noticeably faster, and Extra Hard flashes each light for half a second or less right from round one.
       </p>
       <div class="btnrow"><button class="solid alt" id="btn-howto-back">Back</button></div>
     </div>
@@ -469,11 +482,20 @@
   <div class="overlay hidden" id="ov-settings">
     <div class="modal">
       <h2>Settings</h2>
-      <div class="toggle-row"><span>Sound</span><button class="switch" id="tg-sound" role="switch"></button></div>
-      <div class="toggle-row"><span>Strict Mode</span><button class="switch" id="tg-strict" role="switch"></button></div>
-      <div class="toggle-row"><span>Hard Mode</span><button class="switch" id="tg-hard" role="switch"></button></div>
-      <div class="toggle-row"><span>Colorblind Mode</span><button class="switch" id="tg-colorblind" role="switch"></button></div>
-      <div class="toggle-row"><span>Reduced Motion</span><button class="switch" id="tg-reduced" role="switch"></button></div>
+      <div class="toggle-list">
+        <div class="toggle-row"><span>Sound</span><button class="switch" id="tg-sound" role="switch"></button></div>
+        <div class="toggle-row"><span>Strict Mode</span><button class="switch" id="tg-strict" role="switch"></button></div>
+        <div class="toggle-row stacked">
+          <span>Difficulty</span>
+          <div class="segmented" id="difficulty-seg" role="radiogroup" aria-label="Difficulty">
+            <button class="seg-btn" data-diff="normal" role="radio">Normal</button>
+            <button class="seg-btn" data-diff="hard" role="radio">Hard</button>
+            <button class="seg-btn" data-diff="extraHard" role="radio">Extra Hard</button>
+          </div>
+        </div>
+        <div class="toggle-row"><span>Colorblind Mode</span><button class="switch" id="tg-colorblind" role="switch"></button></div>
+        <div class="toggle-row"><span>Reduced Motion</span><button class="switch" id="tg-reduced" role="switch"></button></div>
+      </div>
       <div class="btnrow" style="margin-top:16px;"><button class="solid alt" id="btn-settings-back">Back</button></div>
     </div>
   </div>
@@ -516,13 +538,23 @@
 
   function sleep(ms){ return new Promise(res=>setTimeout(res, ms)); }
 
+  // difficulty multiplies the base curve and lowers its floor: Hard flashes are
+  // always noticeably shorter than Normal's, Extra Hard is at/under half a
+  // second (500ms) right from round 1 and gets very short at high rounds.
+  const DIFFICULTY = {
+    normal:    { mult:1.00, floor:0.50 },
+    hard:      { mult:0.75, floor:0.32 },
+    extraHard: { mult:0.55, floor:0.18 }
+  };
+
   function speedFactor(round){
     let f;
     if(round<=5) f = 1.0;
     else if(round<=10) f = 0.95;
     else if(round<=20) f = 0.90;
     else f = Math.max(0.5, 0.90 - (round-20)*0.01);
-    if(settings.hardMode) f = Math.max(0.32, f*0.75); // hard mode: ~33% faster throughout, higher speed ceiling
+    const d = DIFFICULTY[settings.difficulty] || DIFFICULTY.normal;
+    if(d.mult !== 1.00) f = Math.max(d.floor, f*d.mult);
     return f;
   }
 
@@ -530,11 +562,14 @@
   // settings & high score persistence
   // =====================================================================
   function loadSettings(){
-    const defaults = { sound:true, strict:true, hardMode:false, colorblind:false, reducedMotion:false };
+    const defaults = { sound:true, strict:true, difficulty:'normal', colorblind:false, reducedMotion:false };
     try{
       const raw = localStorage.getItem(SETTINGS_KEY);
       if(!raw) return defaults;
       const parsed = JSON.parse(raw);
+      if(parsed && parsed.hardMode === true && !parsed.difficulty){
+        defaults.difficulty = 'hard'; // migrate from the old boolean hard-mode toggle
+      }
       return Object.assign(defaults, parsed);
     }catch(e){ return defaults; }
   }
@@ -688,7 +723,8 @@
     hudRound.textContent = String(round).padStart(2,'0');
     hudHigh.textContent = String(game.highScore).padStart(3,'0');
     setDigits(ledWindow, game.score, 3);
-    ledCaption.textContent = 'RD ' + String(round).padStart(2,'0') + ' · HI ' + String(game.highScore).padStart(3,'0') + (settings.hardMode ? ' · HARD' : '');
+    const diffTag = settings.difficulty==='hard' ? ' · HARD' : settings.difficulty==='extraHard' ? ' · XTRA' : '';
+    ledCaption.textContent = 'RD ' + String(round).padStart(2,'0') + ' · HI ' + String(game.highScore).padStart(3,'0') + diffTag;
   }
 
   function addRandomColor(){
@@ -899,9 +935,9 @@
   function openSettings(){
     document.getElementById('tg-sound').classList.toggle('on', settings.sound);
     document.getElementById('tg-strict').classList.toggle('on', settings.strict);
-    document.getElementById('tg-hard').classList.toggle('on', settings.hardMode);
     document.getElementById('tg-colorblind').classList.toggle('on', settings.colorblind);
     document.getElementById('tg-reduced').classList.toggle('on', settings.reducedMotion);
+    syncDifficultyUI();
     showOverlay('settings');
   }
   document.getElementById('btn-settings').addEventListener('click', openSettings);
@@ -928,9 +964,26 @@
   }
   wireToggle('tg-sound','sound', ()=>{ updateMuteLabel(); });
   wireToggle('tg-strict','strict');
-  wireToggle('tg-hard','hardMode', updateHud);
   wireToggle('tg-colorblind','colorblind', applyAccessibilityClasses);
   wireToggle('tg-reduced','reducedMotion', applyAccessibilityClasses);
+
+  const diffButtons = Array.from(document.querySelectorAll('#difficulty-seg .seg-btn'));
+  function syncDifficultyUI(){
+    diffButtons.forEach(b=>{
+      const on = b.dataset.diff === settings.difficulty;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+  diffButtons.forEach(b=>{
+    b.addEventListener('click', ()=>{
+      settings.difficulty = b.dataset.diff;
+      saveSettings();
+      syncDifficultyUI();
+      updateHud();
+    });
+  });
+  syncDifficultyUI();
 
   const muteBtn = document.getElementById('btn-mute');
   function updateMuteLabel(){
