@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Memory Game</title>
+<style>
+  :root{
+    --bg-0:#0a0b0d;
+    --bg-spot:#1d2027;
+    --ink:#e8e6e2;
+    --ink-dim:#7d818a;
+    --accent:#d9524f;
+    --panel:#111318;
+    --panel-lo:#000;
+    --green:#16c172;
+    --red:#e13a3a;
+    --yellow:#f0b400;
+    --blue:#3d8fe0;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background:
+      radial-gradient(ellipse 65% 55% at 50% 38%, var(--bg-spot), var(--bg-0) 70%);
+    color:var(--ink);
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
+  }
+  body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    gap:1.4vmin;
+    min-height:100vh;
+    min-height:100dvh; /* dynamic viewport height: avoids jumpiness under mobile browser toolbars */
+    padding:2vmin 2vmin 3vmin;
+    overflow-x:hidden;
+  }
+
+  .wordmark{
+    margin-top:1vmin;
+    font-size:clamp(15px,2.6vmin,22px);
+    font-weight:600;
+    letter-spacing:6px;
+    text-transform:uppercase;
+    color:#d7d4ce;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.10), 0 -1px 1px rgba(0,0,0,0.7);
+  }
+  .tagline{
+    margin-top:-0.6vmin;
+    font-size:clamp(10px,1.5vmin,13px);
+    color:var(--ink-dim);
+    letter-spacing:1px;
+  }
+
+  .stat-row{
+    display:flex;
+    gap:2.4vmin;
+    font-family: ui-monospace, "Consolas", monospace;
+    font-variant-numeric: tabular-nums;
+    font-size:clamp(10px,1.6vmin,13px);
+    color:var(--ink-dim);
+    letter-spacing:1px;
+    margin-top:0.4vmin;
+  }
+  .stat-row b{ color:var(--accent); font-weight:600; }
+
+  .device-stage{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:1;
+    width:100%;
+  }
+
+  .device{
+    position:relative;
+    width:clamp(250px, 78vmin, 760px); /* floor keeps the hub/start button tappable on small phones */
+    aspect-ratio:1/1;
+    border-radius:50%;
+    background:
+      radial-gradient(circle at 32% 26%, #2c2f36, #131519 55%, #08090b 100%);
+    box-shadow:
+      inset 0 6px 14px rgba(255,255,255,0.08),
+      inset 0 -18px 40px rgba(0,0,0,0.6),
+      0 4vmin 8vmin rgba(0,0,0,0.55),
+      0 1vmin 2vmin rgba(0,0,0,0.4);
+  }
+  .device.idle-glow{
+    animation: idleGlow 3.2s ease-in-out infinite;
+  }
+  @keyframes idleGlow{
+    0%,100%{ box-shadow:
+      inset 0 6px 14px rgba(255,255,255,0.08),
+      inset 0 -18px 40px rgba(0,0,0,0.6),
+      0 4vmin 8vmin rgba(0,0,0,0.55),
+      0 0 5vmin 0 rgba(217,82,79,0.10); }
+    50%{ box-shadow:
+      inset 0 6px 14px rgba(255,255,255,0.08),
+      inset 0 -18px 40px rgba(0,0,0,0.6),
+      0 4vmin 8vmin rgba(0,0,0,0.55),
+      0 0 8vmin 1vmin rgba(217,82,79,0.22); }
+  }
+  .device.shake{ animation: deviceShake 0.5s ease-in-out; }
+  @keyframes deviceShake{
+    0%{ transform: translate(0,0) rotate(0); }
+    15%{ transform: translate(-1.2%,0.6%) rotate(-1deg); }
+    30%{ transform: translate(1.4%,-0.5%) rotate(1deg); }
+    45%{ transform: translate(-1%,0.4%) rotate(-0.7deg); }
+    60%{ transform: translate(1%,-0.3%) rotate(0.6deg); }
+    75%{ transform: translate(-0.5%,0.2%) rotate(-0.3deg); }
+    100%{ transform: translate(0,0) rotate(0); }
+  }
+
+  .buttons-ring{
+    position:absolute;
+    inset:5.5%;
+    border-radius:50%;
+    overflow:hidden;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.6);
+  }
+
+  .quad{
+    position:absolute;
+    width:50%;
+    height:50%;
+    background: var(--c);
+    filter: brightness(0.6) saturate(0.82);
+    transition: filter 0.11s ease-out, transform 0.11s ease-out, box-shadow 0.11s ease-out;
+    cursor:pointer;
+    touch-action: manipulation;
+  }
+  .quad::before{
+    content:'';
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at var(--hx) var(--hy), rgba(255,255,255,0.4), transparent 58%);
+    pointer-events:none;
+  }
+  .quad::after{
+    content:'';
+    position:absolute; inset:0;
+    box-shadow:
+      inset 0 -1.6vmin 3vmin rgba(0,0,0,0.32),
+      inset 0 1vmin 2vmin rgba(255,255,255,0.12);
+    pointer-events:none;
+  }
+  .quad-green{ --c:var(--green); --hx:28%; --hy:22%; top:0; left:0; border-radius:100% 0 0 0; border-right:0.6vmin solid #000; border-bottom:0.6vmin solid #000; }
+  .quad-red{ --c:var(--red); --hx:72%; --hy:22%; top:0; right:0; border-radius:0 100% 0 0; border-left:0.6vmin solid #000; border-bottom:0.6vmin solid #000; }
+  .quad-yellow{ --c:var(--yellow); --hx:28%; --hy:78%; bottom:0; left:0; border-radius:0 0 0 100%; border-right:0.6vmin solid #000; border-top:0.6vmin solid #000; }
+  .quad-blue{ --c:var(--blue); --hx:72%; --hy:78%; bottom:0; right:0; border-radius:0 0 100% 0; border-left:0.6vmin solid #000; border-top:0.6vmin solid #000; }
+
+  .quad.active{
+    filter: brightness(1.55) saturate(1.15);
+    transform: scale(1.025);
+    box-shadow: 0 0 7vmin 1.4vmin var(--c);
+    z-index:2;
+  }
+
+  .cb-symbol{
+    position:absolute;
+    font-size:5vmin;
+    font-weight:800;
+    color:rgba(0,0,0,0.55);
+    display:none;
+    pointer-events:none;
+    text-shadow: 0 0 0.6vmin rgba(255,255,255,0.3);
+  }
+  .device.colorblind .cb-symbol{ display:block; }
+  .quad-green .cb-symbol{ top:26%; left:22%; }
+  .quad-red .cb-symbol{ top:26%; right:22%; }
+  .quad-yellow .cb-symbol{ bottom:26%; left:22%; }
+  .quad-blue .cb-symbol{ bottom:26%; right:22%; }
+
+  @media (prefers-reduced-motion: reduce){
+    .quad, .device, .power-led, .status-led{ transition-duration:0.01ms !important; animation:none !important; }
+  }
+  .reduced-motion .quad, .reduced-motion .device, .reduced-motion .power-led, .reduced-motion .status-led{
+    transition-duration:0.01ms !important; animation:none !important;
+  }
+
+  .hub{
+    position:absolute;
+    top:50%; left:50%;
+    width:40%; height:40%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #24262c, #0d0e11 70%);
+    box-shadow:
+      0 0 3vmin 0.6vmin rgba(0,0,0,0.55),
+      inset 0 2px 4px rgba(255,255,255,0.08),
+      inset 0 -6px 12px rgba(0,0,0,0.6);
+    z-index:3;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:0.6vmin;
+    padding:2vmin;
+  }
+
+  .grille{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:0.5vmin;
+    width:34%;
+  }
+  .grille span{
+    width:100%;
+    aspect-ratio:1/1;
+    border-radius:50%;
+    background:#000;
+    box-shadow: inset 0 0.5px 1px rgba(255,255,255,0.15);
+  }
+
+  .led-window{
+    background:#050506;
+    border-radius:0.8vmin;
+    padding:0.8vmin 1vmin;
+    box-shadow: inset 0 0 1vmin rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04);
+    display:flex;
+    gap:0.3vmin;
+  }
+  .digit{ position:relative; width:2.6vmin; height:4.6vmin; }
+  .seg{ position:absolute; background:#3a0808; border-radius:1px; transition: background 0.08s, box-shadow 0.08s; }
+  .seg.lit{ background:#ff453a; box-shadow:0 0 0.8vmin 0.15vmin rgba(255,69,58,0.95), 0 0 1.8vmin 0.3vmin rgba(255,69,58,0.5); }
+  .seg-a{ top:0; left:10%; width:80%; height:11%; }
+  .seg-b{ top:6%; right:0; width:11%; height:43%; }
+  .seg-c{ top:51%; right:0; width:11%; height:43%; }
+  .seg-d{ bottom:0; left:10%; width:80%; height:11%; }
+  .seg-e{ top:51%; left:0; width:11%; height:43%; }
+  .seg-f{ top:6%; left:0; width:11%; height:43%; }
+  .seg-g{ top:44.5%; left:10%; width:80%; height:11%; }
+
+  .led-caption{
+    font-family: ui-monospace, Consolas, monospace;
+    font-size:1.15vmin;
+    min-font-size:9px;
+    letter-spacing:0.5px;
+    color:#ff6a60;
+    text-shadow:0 0 0.6vmin rgba(255,69,58,0.6);
+    white-space:nowrap;
+  }
+
+  .start-btn{
+    font-family:inherit;
+    font-weight:700;
+    letter-spacing:1.5px;
+    font-size:clamp(9px, 1.6vmin, 14px);
+    color:#d8d8d8;
+    background: radial-gradient(circle at 35% 30%, #3a3d44, #1a1c20 80%);
+    border:none;
+    border-radius:50%;
+    width:27%;
+    min-width:42px;
+    min-height:42px;
+    aspect-ratio:1/1;
+    cursor:pointer;
+    box-shadow:
+      inset 0 2px 3px rgba(255,255,255,0.15),
+      inset 0 -3px 6px rgba(0,0,0,0.6),
+      0 2px 4px rgba(0,0,0,0.5);
+  }
+  .start-btn:active{ box-shadow: inset 0 2px 6px rgba(0,0,0,0.7); }
+  .start-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .led-row{ display:flex; align-items:center; gap:1vmin; }
+  .status-led, .power-led{
+    width:1vmin; height:1vmin; min-width:6px; min-height:6px;
+    border-radius:50%;
+    background:#333;
+  }
+  .power-led{ background:#2c5; box-shadow:0 0 0.6vmin #2c5; animation: powerPulse 2.6s ease-in-out infinite; }
+  @keyframes powerPulse{ 0%,100%{ opacity:0.55; } 50%{ opacity:1; } }
+  .status-led.busy{ background:#f0b400; box-shadow:0 0 0.8vmin #f0b400; animation: powerPulse 0.6s ease-in-out infinite; }
+  .status-led.ready{ background:#16c172; box-shadow:0 0 0.8vmin #16c172; }
+  .status-led.error{ background:#e13a3a; box-shadow:0 0 0.8vmin #e13a3a; }
+
+  .bottom-bar{
+    display:flex;
+    gap:1.6vmin;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-top:0.4vmin;
+  }
+  .ghost-btn{
+    font-family:inherit;
+    font-size:clamp(10px,1.5vmin,13px);
+    font-weight:600;
+    letter-spacing:0.5px;
+    color:var(--ink-dim);
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:2vmin;
+    padding:0.9vmin 2vmin;
+    min-height:40px;
+    display:inline-flex;
+    align-items:center;
+    cursor:pointer;
+    touch-action:manipulation;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .ghost-btn:hover{ color:var(--ink); border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.08); }
+  .ghost-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .overlay{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(4,4,6,0.78);
+    z-index:10;
+    padding:4vmin;
+  }
+  .overlay.hidden{ display:none; }
+  .modal{
+    width:min(92%,380px);
+    background:linear-gradient(180deg,#17191e,#101216);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:14px;
+    padding:26px 24px;
+    text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  }
+  .modal h2{
+    margin:0 0 6px;
+    font-size:20px;
+    font-weight:700;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--ink);
+  }
+  .modal p{
+    margin:0 0 18px;
+    font-size:12.5px;
+    line-height:1.7;
+    color:var(--ink-dim);
+  }
+  .modal .stats{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:6px;
+    margin:0 0 18px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .modal .stats div span{ display:block; font-size:9px; color:var(--ink-dim); letter-spacing:1px; text-transform:uppercase; }
+  .modal .stats div b{ color:var(--accent); font-size:16px; }
+  .modal .btnrow{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  button.solid{
+    font-family:inherit; font-weight:700; letter-spacing:0.5px;
+    font-size:12.5px; text-transform:uppercase;
+    color:#fff; background:var(--accent);
+    border:none; border-radius:8px; padding:11px 20px; cursor:pointer;
+    min-height:42px;
+    touch-action:manipulation;
+  }
+  button.solid.alt{ background:#2a2d34; color:var(--ink); }
+  button.solid:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+
+  .toggle-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 2px; border-bottom:1px solid rgba(255,255,255,0.06);
+    font-size:13px; text-align:left;
+  }
+  .toggle-row:last-of-type{ border-bottom:none; }
+  .switch{
+    position:relative; width:46px; height:26px; flex:none;
+    background:#2a2d34; border-radius:20px; border:none; cursor:pointer;
+    touch-action:manipulation;
+  }
+  .switch::after{
+    content:''; position:absolute; top:2px; left:2px;
+    width:22px; height:22px; border-radius:50%;
+    background:#8a8d94; transition: transform 0.15s, background 0.15s;
+  }
+  .switch.on{ background:rgba(217,82,79,0.35); }
+  .switch.on::after{ transform:translateX(20px); background:var(--accent); }
+  .switch:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .kbd-hint{
+    margin-top:10px; font-size:10.5px; color:var(--ink-dim);
+    font-family: ui-monospace, Consolas, monospace;
+  }
+  .kbd-hint b{
+    color:var(--ink); background:rgba(255,255,255,0.08);
+    padding:1px 5px; border-radius:3px; margin:0 1px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="wordmark">Memory Game</div>
+  <div class="tagline">Repeat the growing sequence.</div>
+  <div class="stat-row">
+    <span>SCORE <b id="hud-score">000</b></span>
+    <span>ROUND <b id="hud-round">01</b></span>
+    <span>HIGH <b id="hud-high">000</b></span>
+  </div>
+
+  <div class="device-stage">
+    <div class="device idle-glow" id="device">
+      <div class="buttons-ring">
+        <div class="quad quad-green" data-color="green" role="button" aria-label="Green (key Q)"><span class="cb-symbol">&#9650;</span></div>
+        <div class="quad quad-red" data-color="red" role="button" aria-label="Red (key W)"><span class="cb-symbol">&#9632;</span></div>
+        <div class="quad quad-yellow" data-color="yellow" role="button" aria-label="Yellow (key A)"><span class="cb-symbol">&#9733;</span></div>
+        <div class="quad quad-blue" data-color="blue" role="button" aria-label="Blue (key S)"><span class="cb-symbol">&#9679;</span></div>
+      </div>
+      <div class="hub">
+        <div class="grille">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="led-window" id="led-window"></div>
+        <div class="led-caption" id="led-caption">RD 01 &middot; HI 000</div>
+        <button class="start-btn" id="start-btn" aria-label="Start Game">START</button>
+        <div class="led-row">
+          <div class="status-led" id="status-led"></div>
+          <div class="power-led" id="power-led"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="ghost-btn" id="btn-restart">&#8635; Restart</button>
+    <button class="ghost-btn" id="btn-home">&#8962; Home</button>
+    <button class="ghost-btn" id="btn-settings">&#9881; Settings</button>
+    <button class="ghost-btn" id="btn-mute">&#128266; Mute</button>
+  </div>
+
+  <div class="overlay" id="ov-start">
+    <div class="modal">
+      <h2>Memory Game</h2>
+      <p>Watch the growing pattern of lights and sounds, then repeat it back. One new step is added every round &mdash; how far can you get?</p>
+      <div class="btnrow">
+        <button class="solid" id="btn-start-game">Start Game</button>
+      </div>
+      <div class="btnrow" style="margin-top:8px;">
+        <button class="solid alt" id="btn-howto">How To Play</button>
+        <button class="solid alt" id="btn-highscore">High Score</button>
+        <button class="solid alt" id="btn-open-settings">Settings</button>
+      </div>
+      <div class="kbd-hint">Mouse, touch, or keyboard &mdash; <b>Q</b> <b>W</b> <b>A</b> <b>S</b></div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="ov-howto">
+    <div class="modal">
+      <h2>How To Play</h2>
+      <p style="text-align:left;">
+        The device plays a sequence of colored lights and tones. Repeat the sequence by pressing the same buttons in the same order.<br><br>
+        Every round you complete, one new random color is added to the end of the sequence &mdash; there's no time limit, so take your time.<br><br>
+        Play with mouse, touch, or the keyboard (<b>Q</b>=green, <b>W</b>=red, <b>A</b>=yellow, <b>S</b>=blue).<br><br>
+        With <b>Strict Mode</b> on, one mistake ends the run. Turn it off in Settings for a gentler game that just replays the current round after a slip.<br><br>
+        Flip on <b>Hard Mode</b> in Settings for a noticeably faster playback speed from round one.
+      </p>
+      <div class="btnrow"><button class="solid alt" id="btn-howto-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="ov-highscore">
+    <div class="modal">
+      <h2>Best Run</h2>
+      <p style="font-size:34px; color:var(--accent); font-family: ui-monospace, Consolas, monospace; margin:4px 0 20px;" id="highscore-big">000</p>
+      <div class="btnrow"><button class="solid alt" id="btn-highscore-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="ov-settings">
+    <div class="modal">
+      <h2>Settings</h2>
+      <div class="toggle-row"><span>Sound</span><button class="switch" id="tg-sound" role="switch"></button></div>
+      <div class="toggle-row"><span>Strict Mode</span><button class="switch" id="tg-strict" role="switch"></button></div>
+      <div class="toggle-row"><span>Hard Mode</span><button class="switch" id="tg-hard" role="switch"></button></div>
+      <div class="toggle-row"><span>Colorblind Mode</span><button class="switch" id="tg-colorblind" role="switch"></button></div>
+      <div class="toggle-row"><span>Reduced Motion</span><button class="switch" id="tg-reduced" role="switch"></button></div>
+      <div class="btnrow" style="margin-top:16px;"><button class="solid alt" id="btn-settings-back">Back</button></div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="ov-gameover">
+    <div class="modal">
+      <h2 style="color:var(--accent);">Game Over</h2>
+      <div class="stats">
+        <div><span>Score</span><b id="go-score">0</b></div>
+        <div><span>Round</span><b id="go-round">0</b></div>
+        <div><span>High</span><b id="go-high">0</b></div>
+      </div>
+      <div class="btnrow">
+        <button class="solid" id="btn-play-again">Play Again</button>
+        <button class="solid alt" id="btn-main-menu">Main Menu</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  // =====================================================================
+  // constants
+  // =====================================================================
+  const COLORS = ['green','red','yellow','blue'];
+  // all four buttons share the same square-wave "voice" as the yellow button,
+  // differing only by pitch (green lowest, blue highest)
+  const TONE = {
+    green:  { freq:196.00, type:'square', gain:0.12 },
+    red:    { freq:246.94, type:'square', gain:0.12 },
+    yellow: { freq:293.66, type:'square', gain:0.12 },
+    blue:   { freq:369.99, type:'square', gain:0.12 }
+  };
+  const ON_MS = 500;
+  const GAP_MS = 200;
+  const SETTINGS_KEY = 'memoryGameSettings';
+  const HIGH_KEY = 'memoryGameHighScore';
+
+  function sleep(ms){ return new Promise(res=>setTimeout(res, ms)); }
+
+  function speedFactor(round){
+    let f;
+    if(round<=5) f = 1.0;
+    else if(round<=10) f = 0.95;
+    else if(round<=20) f = 0.90;
+    else f = Math.max(0.5, 0.90 - (round-20)*0.01);
+    if(settings.hardMode) f = Math.max(0.32, f*0.75); // hard mode: ~33% faster throughout, higher speed ceiling
+    return f;
+  }
+
+  // =====================================================================
+  // settings & high score persistence
+  // =====================================================================
+  function loadSettings(){
+    const defaults = { sound:true, strict:true, hardMode:false, colorblind:false, reducedMotion:false };
+    try{
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if(!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      return Object.assign(defaults, parsed);
+    }catch(e){ return defaults; }
+  }
+  function saveSettings(){
+    try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }catch(e){}
+  }
+  function loadHigh(){
+    try{ const v = parseInt(localStorage.getItem(HIGH_KEY)||'0',10); return isNaN(v)?0:v; }
+    catch(e){ return 0; }
+  }
+  function saveHigh(v){
+    try{ localStorage.setItem(HIGH_KEY, String(v)); }catch(e){}
+  }
+
+  const settings = loadSettings();
+
+  // =====================================================================
+  // audio (procedural, no external assets)
+  // =====================================================================
+  let actx = null;
+  function ensureAudio(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+  function tone(freq, dur, type, gain, delay, freqEnd){
+    if(!actx || !settings.sound) return;
+    const t0 = actx.currentTime + (delay||0);
+    const osc = actx.createOscillator();
+    const g = actx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    if(freqEnd) osc.frequency.linearRampToValueAtTime(freqEnd, t0+dur);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(gain||0.16, t0+0.015);
+    g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+    osc.connect(g).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0+dur+0.03);
+  }
+  function noiseBurst(dur, gain){
+    if(!actx || !settings.sound) return;
+    const t0 = actx.currentTime;
+    const bufferSize = Math.floor(actx.sampleRate * dur);
+    const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+    const src = actx.createBufferSource();
+    src.buffer = buffer;
+    const filt = actx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.value = 900;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(gain||0.12, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+    src.connect(filt).connect(g).connect(actx.destination);
+    src.start(t0);
+  }
+  function playColorTone(color, dur){
+    const t = TONE[color];
+    tone(t.freq, (dur||ON_MS)/1000, t.type, t.gain);
+  }
+  function playStartupNote(color){
+    const t = TONE[color];
+    tone(t.freq, 0.16, t.type, t.gain*0.8);
+  }
+  const sfx = {
+    successChime(){ tone(523.25,0.12,'sine',0.12,0); tone(659.25,0.16,'sine',0.12,0.1); },
+    errorBuzz(){ noiseBurst(0.5,0.16); tone(130,0.5,'sawtooth',0.18,0,90); },
+  };
+
+  // =====================================================================
+  // seven-segment display
+  // =====================================================================
+  const SEVEN_SEG = {
+    '0':'abcdef','1':'bc','2':'abged','3':'abgcd','4':'fgbc',
+    '5':'afgcd','6':'afgedc','7':'abc','8':'abcdefg','9':'abcdfg',
+    ' ':'', '-':'g'
+  };
+  function setDigits(container, value, digitCount){
+    const text = String(value).padStart(digitCount, ' ').slice(-digitCount);
+    container.innerHTML = '';
+    for(const ch of text){
+      const d = document.createElement('div');
+      d.className = 'digit';
+      const lit = SEVEN_SEG[ch] || '';
+      for(const seg of ['a','b','c','d','e','f','g']){
+        const s = document.createElement('div');
+        s.className = 'seg seg-'+seg + (lit.indexOf(seg)>=0 ? ' lit' : '');
+        d.appendChild(s);
+      }
+      container.appendChild(d);
+    }
+  }
+
+  // =====================================================================
+  // DOM refs
+  // =====================================================================
+  const deviceEl = document.getElementById('device');
+  const quadEls = {};
+  document.querySelectorAll('.quad').forEach(el=>{ quadEls[el.dataset.color] = el; });
+  const ledWindow = document.getElementById('led-window');
+  const ledCaption = document.getElementById('led-caption');
+  const statusLed = document.getElementById('status-led');
+  const startBtn = document.getElementById('start-btn');
+
+  const hudScore = document.getElementById('hud-score');
+  const hudRound = document.getElementById('hud-round');
+  const hudHigh = document.getElementById('hud-high');
+
+  const overlays = {
+    start: document.getElementById('ov-start'),
+    howto: document.getElementById('ov-howto'),
+    highscore: document.getElementById('ov-highscore'),
+    settings: document.getElementById('ov-settings'),
+    gameover: document.getElementById('ov-gameover')
+  };
+  function hideAllOverlays(){ Object.values(overlays).forEach(o=>o.classList.add('hidden')); }
+  function showOverlay(name){ hideAllOverlays(); overlays[name].classList.remove('hidden'); }
+  function isAnyOverlayOpen(){ return Object.values(overlays).some(o=>!o.classList.contains('hidden')); }
+
+  // =====================================================================
+  // game state
+  // =====================================================================
+  const game = {
+    state:'idle', // idle | playing-sequence | player-turn | error | gameover
+    sequence:[],
+    score:0,
+    highScore:loadHigh(),
+    inputIndex:0,
+    acceptingInput:false,
+    epoch:0
+  };
+
+  function setActive(color, on){
+    const el = quadEls[color];
+    if(on) el.classList.add('active'); else el.classList.remove('active');
+  }
+
+  const pressTimers = { green:null, red:null, yellow:null, blue:null };
+  function flashPress(color){
+    setActive(color, true);
+    playColorTone(color, ON_MS);
+    clearTimeout(pressTimers[color]);
+    pressTimers[color] = setTimeout(()=>setActive(color,false), ON_MS);
+  }
+
+  function setStatusLed(mode){
+    statusLed.className = 'status-led' + (mode ? ' '+mode : '');
+  }
+
+  function updateHud(){
+    const round = Math.max(1, game.sequence.length || 1);
+    hudScore.textContent = String(game.score).padStart(3,'0');
+    hudRound.textContent = String(round).padStart(2,'0');
+    hudHigh.textContent = String(game.highScore).padStart(3,'0');
+    setDigits(ledWindow, game.score, 3);
+    ledCaption.textContent = 'RD ' + String(round).padStart(2,'0') + ' · HI ' + String(game.highScore).padStart(3,'0') + (settings.hardMode ? ' · HARD' : '');
+  }
+
+  function addRandomColor(){
+    game.sequence.push(COLORS[Math.floor(Math.random()*4)]);
+  }
+
+  // =====================================================================
+  // playback sequences (cancellable via epoch check)
+  // =====================================================================
+  async function playStartupAnimation(myEpoch){
+    setStatusLed('busy');
+    for(const c of COLORS){
+      if(myEpoch !== game.epoch) return false;
+      setActive(c, true);
+      playStartupNote(c);
+      await sleep(140);
+      if(myEpoch !== game.epoch) return false;
+      setActive(c, false);
+      await sleep(60);
+    }
+    await sleep(200);
+    return myEpoch === game.epoch;
+  }
+
+  async function playSequence(myEpoch){
+    if(myEpoch !== game.epoch) return;
+    game.acceptingInput = false;
+    game.state = 'playing-sequence';
+    setStatusLed('busy');
+    await sleep(450);
+    if(myEpoch !== game.epoch) return;
+    const factor = speedFactor(game.sequence.length);
+    const onMs = ON_MS * factor;
+    const gapMs = GAP_MS * factor;
+    for(const color of game.sequence){
+      if(myEpoch !== game.epoch) return;
+      setActive(color, true);
+      playColorTone(color, onMs);
+      await sleep(onMs);
+      if(myEpoch !== game.epoch) return;
+      setActive(color, false);
+      await sleep(gapMs);
+    }
+    if(myEpoch !== game.epoch) return;
+    game.inputIndex = 0;
+    game.acceptingInput = true;
+    game.state = 'player-turn';
+    setStatusLed('ready');
+  }
+
+  async function flashAllError(myEpoch){
+    for(let i=0;i<3;i++){
+      if(myEpoch !== game.epoch) return;
+      COLORS.forEach(c=>setActive(c,true));
+      await sleep(150);
+      if(myEpoch !== game.epoch) return;
+      COLORS.forEach(c=>setActive(c,false));
+      await sleep(150);
+    }
+  }
+
+  function shakeDevice(){
+    if(document.documentElement.classList.contains('reduced-motion')) return;
+    deviceEl.classList.remove('shake');
+    void deviceEl.offsetWidth; // restart animation
+    deviceEl.classList.add('shake');
+  }
+
+  function triggerGameOver(){
+    game.state = 'gameover';
+    setStatusLed('error');
+    document.getElementById('go-score').textContent = game.score;
+    document.getElementById('go-round').textContent = Math.max(1, game.sequence.length);
+    document.getElementById('go-high').textContent = game.highScore;
+    showOverlay('gameover');
+  }
+
+  function wrongPress(color){
+    const myEpoch = game.epoch;
+    game.acceptingInput = false;
+    game.state = 'error';
+    setStatusLed('error');
+    sfx.errorBuzz();
+    flashAllError(myEpoch);
+    if(settings.strict){
+      shakeDevice();
+      setTimeout(()=>{ if(myEpoch===game.epoch) triggerGameOver(); }, 950);
+    } else {
+      setTimeout(()=>{ if(myEpoch===game.epoch) playSequence(myEpoch); }, 950);
+    }
+  }
+
+  function completeRound(){
+    const myEpoch = game.epoch;
+    game.acceptingInput = false;
+    game.state = 'playing-sequence';
+    game.score++;
+    if(game.score > game.highScore){ game.highScore = game.score; saveHigh(game.highScore); }
+    updateHud();
+    sfx.successChime();
+    setTimeout(()=>{
+      if(myEpoch !== game.epoch) return;
+      addRandomColor();
+      updateHud();
+      playSequence(myEpoch);
+    }, 700);
+  }
+
+  function pressColor(color){
+    if(!game.acceptingInput || game.state!=='player-turn' || isAnyOverlayOpen()) return;
+    flashPress(color);
+    if(color === game.sequence[game.inputIndex]){
+      game.inputIndex++;
+      if(game.inputIndex === game.sequence.length){
+        completeRound();
+      }
+    } else {
+      wrongPress(color);
+    }
+  }
+
+  // =====================================================================
+  // game flow
+  // =====================================================================
+  async function runStartupThenPlay(){
+    const myEpoch = game.epoch;
+    const ok = await playStartupAnimation(myEpoch);
+    if(!ok) return;
+    addRandomColor();
+    updateHud();
+    await playSequence(myEpoch);
+  }
+
+  function beginNewGame(){
+    ensureAudio();
+    game.epoch++;
+    game.sequence = [];
+    game.score = 0;
+    game.inputIndex = 0;
+    game.acceptingInput = false;
+    game.state = 'playing-sequence';
+    COLORS.forEach(c=>setActive(c,false));
+    hideAllOverlays();
+    updateHud();
+    runStartupThenPlay();
+  }
+
+  function goToMainMenu(){
+    game.epoch++;
+    game.acceptingInput = false;
+    game.state = 'idle';
+    game.sequence = [];
+    game.score = 0;
+    COLORS.forEach(c=>setActive(c,false));
+    setStatusLed('');
+    updateHud();
+    showOverlay('start');
+  }
+
+  // =====================================================================
+  // input wiring
+  // =====================================================================
+  Object.entries(quadEls).forEach(([color, el])=>{
+    el.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      ensureAudio();
+      pressColor(color);
+    });
+  });
+
+  const KEY_MAP = { KeyQ:'green', KeyW:'red', KeyA:'yellow', KeyS:'blue' };
+  window.addEventListener('keydown', (e)=>{
+    if(KEY_MAP[e.code]){
+      e.preventDefault();
+      ensureAudio();
+      pressColor(KEY_MAP[e.code]);
+    } else if(e.code==='Enter' && !overlays.start.classList.contains('hidden')){
+      beginNewGame();
+    } else if(e.code==='Escape'){
+      if(!overlays.settings.classList.contains('hidden') ||
+         !overlays.howto.classList.contains('hidden') ||
+         !overlays.highscore.classList.contains('hidden')){
+        showOverlay('start');
+      }
+    }
+  });
+
+  startBtn.addEventListener('click', ()=>{
+    if(game.state==='idle'){ beginNewGame(); }
+  });
+
+  document.getElementById('btn-start-game').addEventListener('click', beginNewGame);
+  document.getElementById('btn-play-again').addEventListener('click', beginNewGame);
+  document.getElementById('btn-restart').addEventListener('click', beginNewGame);
+
+  document.getElementById('btn-main-menu').addEventListener('click', goToMainMenu);
+  document.getElementById('btn-home').addEventListener('click', goToMainMenu);
+
+  document.getElementById('btn-howto').addEventListener('click', ()=>showOverlay('howto'));
+  document.getElementById('btn-howto-back').addEventListener('click', ()=>showOverlay('start'));
+
+  document.getElementById('btn-highscore').addEventListener('click', ()=>{
+    document.getElementById('highscore-big').textContent = String(game.highScore).padStart(3,'0');
+    showOverlay('highscore');
+  });
+  document.getElementById('btn-highscore-back').addEventListener('click', ()=>showOverlay('start'));
+
+  function openSettings(){
+    document.getElementById('tg-sound').classList.toggle('on', settings.sound);
+    document.getElementById('tg-strict').classList.toggle('on', settings.strict);
+    document.getElementById('tg-hard').classList.toggle('on', settings.hardMode);
+    document.getElementById('tg-colorblind').classList.toggle('on', settings.colorblind);
+    document.getElementById('tg-reduced').classList.toggle('on', settings.reducedMotion);
+    showOverlay('settings');
+  }
+  document.getElementById('btn-settings').addEventListener('click', openSettings);
+  document.getElementById('btn-open-settings').addEventListener('click', openSettings);
+  document.getElementById('btn-settings-back').addEventListener('click', ()=>{
+    // return to whichever screen makes sense
+    if(game.state==='idle') showOverlay('start'); else hideAllOverlays();
+  });
+
+  function applyAccessibilityClasses(){
+    deviceEl.classList.toggle('colorblind', settings.colorblind);
+    document.documentElement.classList.toggle('reduced-motion', settings.reducedMotion);
+  }
+  applyAccessibilityClasses();
+
+  function wireToggle(id, key, onChange){
+    const btn = document.getElementById(id);
+    btn.addEventListener('click', ()=>{
+      settings[key] = !settings[key];
+      btn.classList.toggle('on', settings[key]);
+      saveSettings();
+      if(onChange) onChange();
+    });
+  }
+  wireToggle('tg-sound','sound', ()=>{ updateMuteLabel(); });
+  wireToggle('tg-strict','strict');
+  wireToggle('tg-hard','hardMode', updateHud);
+  wireToggle('tg-colorblind','colorblind', applyAccessibilityClasses);
+  wireToggle('tg-reduced','reducedMotion', applyAccessibilityClasses);
+
+  const muteBtn = document.getElementById('btn-mute');
+  function updateMuteLabel(){
+    muteBtn.innerHTML = settings.sound ? '&#128266; Mute' : '&#128264; Unmute';
+  }
+  muteBtn.addEventListener('click', ()=>{
+    settings.sound = !settings.sound;
+    saveSettings();
+    updateMuteLabel();
+  });
+  updateMuteLabel();
+
+  // =====================================================================
+  // initial paint
+  // =====================================================================
+  updateHud();
+  showOverlay('start');
+
+})();
+</script>
+</body>
+</html>
