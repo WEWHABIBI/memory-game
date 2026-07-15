@@ -376,6 +376,8 @@
   }
   .seg-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   .seg-btn-hell.active{ background:#ff3d1a; border-color:#ff3d1a; box-shadow:0 0 12px rgba(255,61,26,0.55); }
+  .seg-btn-unbeatable{ grid-column:1 / -1; }
+  .seg-btn-unbeatable.active{ background:#000; color:#fff; border-color:#fff; box-shadow:0 0 10px rgba(255,255,255,0.35); }
   .seg-btn-progressive{ grid-column:1 / -1; }
   .seg-btn.active.seg-btn-progressive{ background:linear-gradient(90deg,var(--accent),#ff3d1a); border-color:transparent; }
   .seg-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
@@ -468,7 +470,7 @@
         Every round you complete, one new random color is added to the end of the sequence &mdash; there's no time limit, so take your time.<br><br>
         Play with mouse, touch, or the keyboard (<b>Q</b>=green, <b>W</b>=red, <b>A</b>=yellow, <b>S</b>=blue).<br><br>
         With <b>Strict Mode</b> on, one mistake ends the run. Turn it off in Settings for a gentler game that just replays the current round after a slip.<br><br>
-        Pick a <b>Difficulty</b> in Settings: Normal plays at the classic pace, Hard is noticeably faster, Extra Hard flashes each light for half a second or less right from round one, and Hell Mode flashes for a quarter of a second or less. <b>Progressive</b> plays through all of them in one run, starting easy and ramping up to Hell Mode's extreme speed as you go.
+        Pick a <b>Difficulty</b> in Settings: Normal plays at the classic pace, Hard is noticeably faster, Extra Hard flashes each light for half a second or less right from round one, and Hell Mode flashes for a quarter of a second or less. <b>Progressive</b> plays through all of them in one run, starting easy and ramping up to Hell Mode's extreme speed as you go. <b>Unbeatable</b> flashes every light for exactly one millisecond &mdash; it's a joke mode, not a real challenge.
       </p>
       <div class="btnrow"><button class="solid alt" id="btn-howto-back">Back</button></div>
     </div>
@@ -495,6 +497,7 @@
             <button class="seg-btn" data-diff="hard" role="radio">Hard</button>
             <button class="seg-btn" data-diff="extraHard" role="radio">Extra Hard</button>
             <button class="seg-btn seg-btn-hell" data-diff="hell" role="radio">Hell Mode</button>
+            <button class="seg-btn seg-btn-unbeatable" data-diff="unbeatable" role="radio">Unbeatable</button>
             <button class="seg-btn seg-btn-progressive" data-diff="progressive" role="radio">Progressive (Easy &rarr; Extreme)</button>
           </div>
         </div>
@@ -550,10 +553,11 @@
   //  - extraHard:  at/under half a second (500ms) from round 1, down to a 90ms floor
   //  - hell:       at/under a quarter second (250ms) from round 1, down to a 40ms floor
   const DIFFICULTY = {
-    normal:    { mult:1.00, floor:0.50 },
-    hard:      { mult:0.75, floor:0.32 },
-    extraHard: { mult:0.55, floor:0.18 },
-    hell:      { mult:0.40, floor:0.08 }
+    normal:     { mult:1.00,  floor:0.50 },
+    hard:       { mult:0.75,  floor:0.32 },
+    extraHard:  { mult:0.55,  floor:0.18 },
+    hell:       { mult:0.40,  floor:0.08 },
+    unbeatable: { mult:0.002, floor:0.002 } // flashes for exactly 1ms, every round — not meant to be won
   };
 
   // "Progressive" isn't its own speed curve — it auto-advances through the
@@ -624,8 +628,11 @@
     osc.type = type || 'sine';
     osc.frequency.setValueAtTime(freq, t0);
     if(freqEnd) osc.frequency.linearRampToValueAtTime(freqEnd, t0+dur);
+    // attack must always finish before the note ends, however short dur gets
+    // (extreme difficulty tiers can go down to ~1ms) or the ramps overlap invalidly
+    const attack = Math.min(0.015, dur*0.3);
     g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(gain||0.16, t0+0.015);
+    g.gain.linearRampToValueAtTime(gain||0.16, t0+attack);
     g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
     osc.connect(g).connect(actx.destination);
     osc.start(t0);
@@ -749,7 +756,7 @@
     hudHigh.textContent = String(game.highScore).padStart(3,'0');
     setDigits(ledWindow, game.score, 3);
     const activeDiff = resolvedDifficulty(round);
-    const diffTag = activeDiff==='hard' ? ' · HARD' : activeDiff==='extraHard' ? ' · XTRA' : activeDiff==='hell' ? ' · HELL' : '';
+    const diffTag = activeDiff==='hard' ? ' · HARD' : activeDiff==='extraHard' ? ' · XTRA' : activeDiff==='hell' ? ' · HELL' : activeDiff==='unbeatable' ? ' · 1MS' : '';
     ledCaption.textContent = 'RD ' + String(round).padStart(2,'0') + ' · HI ' + String(game.highScore).padStart(3,'0') + diffTag;
   }
 
