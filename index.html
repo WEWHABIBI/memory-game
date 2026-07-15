@@ -57,8 +57,8 @@
   /* "Unbeatable" scary theme */
   body.scary-mode{
     background:
-      radial-gradient(ellipse 75% 60% at 50% 38%, rgba(180,0,0,0.55), transparent 68%),
-      radial-gradient(ellipse 100% 95% at 50% 50%, #4a0000 0%, #2a0000 45%, #120000 80%, #000 100%);
+      radial-gradient(ellipse 60% 45% at 50% 38%, rgba(120,0,0,0.22), transparent 70%),
+      radial-gradient(ellipse 100% 95% at 50% 50%, #0a0000 0%, #000 65%);
   }
   body.scary-mode .wordmark{
     color:#ff3b3b;
@@ -614,11 +614,15 @@
 
   <div class="overlay hidden" id="ov-unbeatable-confirm" style="z-index:20;">
     <div class="modal" style="border-color:#8b0000; box-shadow:0 0 0 4px rgba(0,0,0,0.6), 0 0 30px rgba(139,0,0,0.5);">
-      <h2 style="color:#ff2b2b; text-shadow:0 0 10px rgba(255,0,0,0.7);">Are You Sure?</h2>
-      <p>Unbeatable mode flashes each light for just 50 milliseconds, every round, forever. It is not meant to be won. Do you still want to play it?</p>
+      <h2 id="unbeatable-title" style="color:#ff2b2b; text-shadow:0 0 10px rgba(255,0,0,0.7);">Warning</h2>
+      <p id="unbeatable-text">Unbeatable mode flashes each light for just 50 milliseconds, every round, forever.</p>
+      <div id="unbeatable-name-step" class="hidden" style="margin:-4px 0 16px;">
+        <input type="text" id="unbeatable-name-input" maxlength="20" placeholder="Your name"
+          style="width:100%; box-sizing:border-box; background:#0a0a0a; border:1px solid #8b0000; color:#fff; padding:10px 12px; border-radius:6px; font-family:inherit; font-size:14px; text-align:center;">
+      </div>
       <div class="btnrow">
-        <button class="solid" id="btn-unbeatable-confirm" style="background:#8b0000;">Yes, I Dare</button>
-        <button class="solid alt" id="btn-unbeatable-cancel">Cancel</button>
+        <button class="solid" id="btn-unbeatable-confirm" style="background:#8b0000;">Continue&hellip;</button>
+        <button class="solid alt" id="btn-unbeatable-cancel">Turn Back</button>
       </div>
     </div>
   </div>
@@ -706,7 +710,7 @@
   // settings & high score persistence
   // =====================================================================
   function loadSettings(){
-    const defaults = { sound:true, strict:true, difficulty:'normal', colorblind:false, reducedMotion:false };
+    const defaults = { sound:true, strict:true, difficulty:'normal', colorblind:false, reducedMotion:false, unbeatablePlayerName:'' };
     try{
       const raw = localStorage.getItem(SETTINGS_KEY);
       if(!raw) return defaults;
@@ -945,14 +949,32 @@
     setTimeout(()=>deviceEl.classList.remove('shake'), 520);
   }
 
+  const UNBEATABLE_ROASTS = [
+    n => `I TOLD YOU, ${n}. YOU JUST NEVER LISTEN.`,
+    n => `${n}, EVERY. SINGLE. TIME.`,
+    n => `DID YOU REALLY THINK YOU'D WIN, ${n}?`,
+    n => `NOT EVEN CLOSE, ${n}.`,
+    n => `${n}, YOU WERE WARNED. TEN TIMES.`,
+    n => `AGAIN, ${n}? REALLY?`,
+    n => `${n} HAS FALLEN. AS EXPECTED.`,
+    n => `THIS WAS NEVER ABOUT WINNING, ${n}.`,
+    n => `PATHETIC, ${n}. TRULY PATHETIC.`,
+    n => `GOODBYE, ${n}. WE WON'T MISS YOU.`
+  ];
+
   function triggerGameOver(){
     game.state = 'gameover';
     setStatusLed('error');
     document.getElementById('go-score').textContent = game.score;
     document.getElementById('go-round').textContent = Math.max(1, game.sequence.length);
     document.getElementById('go-high').textContent = game.highScore;
-    document.getElementById('go-title').textContent =
-      settings.difficulty==='unbeatable' ? 'You Were Never Supposed To Win' : 'Game Over';
+    if(settings.difficulty==='unbeatable'){
+      const name = settings.unbeatablePlayerName || 'Player';
+      const roast = UNBEATABLE_ROASTS[Math.floor(Math.random()*UNBEATABLE_ROASTS.length)](name);
+      document.getElementById('go-title').textContent = roast;
+    } else {
+      document.getElementById('go-title').textContent = 'Game Over';
+    }
     showOverlay('gameover');
   }
 
@@ -1051,6 +1073,12 @@
 
   const KEY_MAP = { KeyQ:'green', KeyW:'red', KeyA:'yellow', KeyS:'blue' };
   window.addEventListener('keydown', (e)=>{
+    // don't hijack Q/W/A/S (or Enter) as game input while the user is typing
+    // into a text field (e.g. the "Unbeatable" name prompt) — Escape still
+    // falls through below so it can dismiss the dialog either way
+    const activeTag = document.activeElement && document.activeElement.tagName;
+    const isTyping = (activeTag === 'INPUT' || activeTag === 'TEXTAREA') && e.code !== 'Escape';
+    if(isTyping) return;
     if(KEY_MAP[e.code]){
       e.preventDefault();
       ensureAudio();
@@ -1058,6 +1086,7 @@
     } else if(e.code==='Enter' && !overlays.start.classList.contains('hidden')){
       beginNewGame();
     } else if(e.code==='Escape'){
+      if(document.activeElement && document.activeElement.tagName==='INPUT') document.activeElement.blur();
       if(!unbeatableConfirmOverlay.classList.contains('hidden')){
         hideUnbeatableWarning();
       } else if(!overlays.settings.classList.contains('hidden') ||
@@ -1200,14 +1229,67 @@
   syncDifficultyUI();
   applyScaryTheme();
 
+  const UNBEATABLE_WARNINGS = [
+    'This mode was not designed to be won.',
+    'Every recorded player has lost.',
+    'The flashes last less time than a single blink.',
+    'There is no pausing once you begin.',
+    'Your reflexes are not fast enough for this.',
+    'This will not end well for you.',
+    'Turning back now costs you nothing.',
+    'Continuing costs you everything.',
+    'This is the last screen where you can still say no.',
+    'Very well then. It wants to know who you are.'
+  ];
+
   const unbeatableConfirmOverlay = document.getElementById('ov-unbeatable-confirm');
-  function showUnbeatableWarning(){ unbeatableConfirmOverlay.classList.remove('hidden'); }
+  const unbeatableTitleEl = document.getElementById('unbeatable-title');
+  const unbeatableTextEl = document.getElementById('unbeatable-text');
+  const unbeatableNameStepEl = document.getElementById('unbeatable-name-step');
+  const unbeatableNameInputEl = document.getElementById('unbeatable-name-input');
+  const unbeatableNextBtn = document.getElementById('btn-unbeatable-confirm');
+  let unbeatableStep = 0;
+
+  function renderUnbeatableStep(){
+    const total = UNBEATABLE_WARNINGS.length;
+    if(unbeatableStep < total){
+      unbeatableTitleEl.textContent = `Warning ${unbeatableStep+1} of ${total}`;
+      unbeatableTextEl.textContent = UNBEATABLE_WARNINGS[unbeatableStep];
+      unbeatableNameStepEl.classList.add('hidden');
+      unbeatableNextBtn.textContent = 'Continue…';
+    } else {
+      unbeatableTitleEl.textContent = 'One Last Thing';
+      unbeatableTextEl.textContent = 'State your name, so it knows who to blame.';
+      unbeatableNameStepEl.classList.remove('hidden');
+      unbeatableNextBtn.textContent = 'Begin';
+    }
+  }
+
+  function showUnbeatableWarning(){
+    unbeatableStep = 0;
+    unbeatableNameInputEl.value = settings.unbeatablePlayerName || '';
+    renderUnbeatableStep();
+    unbeatableConfirmOverlay.classList.remove('hidden');
+  }
   function hideUnbeatableWarning(){ unbeatableConfirmOverlay.classList.add('hidden'); }
-  document.getElementById('btn-unbeatable-confirm').addEventListener('click', ()=>{
-    applyDifficulty('unbeatable');
-    hideUnbeatableWarning();
+
+  unbeatableNextBtn.addEventListener('click', ()=>{
+    const total = UNBEATABLE_WARNINGS.length;
+    if(unbeatableStep < total){
+      unbeatableStep++;
+      renderUnbeatableStep();
+    } else {
+      const name = unbeatableNameInputEl.value.trim().slice(0,20) || 'Player';
+      settings.unbeatablePlayerName = name;
+      saveSettings();
+      applyDifficulty('unbeatable');
+      hideUnbeatableWarning();
+    }
   });
   document.getElementById('btn-unbeatable-cancel').addEventListener('click', hideUnbeatableWarning);
+  unbeatableNameInputEl.addEventListener('keydown', (e)=>{
+    if(e.code==='Enter'){ e.preventDefault(); unbeatableNextBtn.click(); }
+  });
 
   const muteBtn = document.getElementById('btn-mute');
   function updateMuteLabel(){
