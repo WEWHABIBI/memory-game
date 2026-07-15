@@ -96,31 +96,73 @@
   .blood-drips{ position:absolute; inset:0; pointer-events:none; z-index:5; }
   .blood-drip{
     position:absolute;
-    width:1.5vmin; min-width:5px;
-    background:linear-gradient(180deg, #8a0000 0%, #5a0000 60%, rgba(74,0,0,0) 100%);
-    border-radius:50% 50% 45% 45% / 65% 65% 35% 35%;
+    width:1.4vmin; min-width:5px;
+    background: linear-gradient(180deg, #430000 0%, #6e0000 30%, #8f0000 65%, #a81419 100%);
+    clip-path: polygon(35% 0%, 65% 0%, 72% 100%, 28% 100%); /* subtle taper, wider near the drop */
     opacity:0;
-    transform:translateX(-50%);
-    transition:opacity 0.4s ease;
+    transform-origin: top center; /* grows downward from the rim, not from its middle */
+    transform: translateX(-50%) scaleY(0.92);
+    transition: opacity 0.5s ease;
+    filter: blur(0.3px);
   }
-  .blood-drip::after{
+  .blood-drip::before{ /* wet gloss highlight running down the strand */
     content:'';
-    position:absolute; left:50%; bottom:-0.6vmin;
-    width:1.9vmin; height:1.9vmin; min-width:6px; min-height:6px;
-    background:#6a0000;
-    border-radius:50% 50% 55% 55%;
-    transform:translateX(-50%) rotate(45deg);
+    position:absolute; top:8%; left:20%;
+    width:24%; height:58%;
+    background: linear-gradient(180deg, rgba(255,190,190,0.55), rgba(255,190,190,0));
+    border-radius:50%;
   }
-  .device.scary .blood-drip{ opacity:1; }
-  .device.scary .blood-drip.drip-a{ left:18%; top:88%; height:6vmin; animation:bloodDrip 3.4s ease-in infinite; }
-  .device.scary .blood-drip.drip-b{ left:33%; top:97%; height:9vmin; animation:bloodDrip 4.2s ease-in infinite 0.6s; }
-  .device.scary .blood-drip.drip-c{ left:50%; top:100%; height:5vmin; animation:bloodDrip 2.8s ease-in infinite 1.2s; }
-  .device.scary .blood-drip.drip-d{ left:67%; top:97%; height:8vmin; animation:bloodDrip 3.9s ease-in infinite 0.3s; }
-  .device.scary .blood-drip.drip-e{ left:82%; top:88%; height:6.5vmin; animation:bloodDrip 3.2s ease-in infinite 1.6s; }
-  @keyframes bloodDrip{
-    0%{ transform:translateX(-50%) scaleY(1); }
-    50%{ transform:translateX(-50%) scaleY(1.18); }
-    100%{ transform:translateX(-50%) scaleY(1); }
+  .blood-drip::after{ /* the hanging drop at the tip: pointed top, heavy round bottom */
+    content:'';
+    position:absolute; left:50%; bottom:-1.3vmin;
+    width:2vmin; height:2.6vmin; min-width:7px; min-height:9px;
+    background:
+      radial-gradient(circle at 32% 26%, rgba(255,175,175,0.7), transparent 42%),
+      radial-gradient(circle at 50% 58%, #c22026, #6e0000 78%);
+    border-radius:60% 60% 60% 60% / 22% 22% 78% 78%;
+    transform:translateX(-50%);
+    box-shadow: inset -1px -2px 3px rgba(0,0,0,0.35);
+  }
+  .drop-fall{ /* an actual droplet that periodically breaks off and falls */
+    position:absolute;
+    left:50%; bottom:-1.4vmin;
+    width:0.85vmin; height:0.85vmin; min-width:4px; min-height:4px;
+    background: radial-gradient(circle at 35% 28%, #d43138, #6e0000 78%);
+    border-radius:50%;
+    transform:translateX(-50%);
+    opacity:0;
+  }
+  .device.scary .blood-drip{
+    opacity:1;
+    animation-name: bloodGrow;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+  .device.scary .blood-drip .drop-fall{
+    animation-name: dropFall;
+    animation-timing-function: ease-in;
+    animation-iteration-count: infinite;
+  }
+  .device.scary .blood-drip.drip-a{ left:18%; top:88%; height:6vmin; animation-duration:4.6s; }
+  .device.scary .blood-drip.drip-b{ left:33%; top:97%; height:9vmin; animation-duration:5.4s; animation-delay:0.8s; }
+  .device.scary .blood-drip.drip-c{ left:50%; top:100%; height:5vmin; animation-duration:3.9s; animation-delay:1.6s; }
+  .device.scary .blood-drip.drip-d{ left:67%; top:97%; height:8vmin; animation-duration:5.1s; animation-delay:0.4s; }
+  .device.scary .blood-drip.drip-e{ left:82%; top:88%; height:6.5vmin; animation-duration:4.3s; animation-delay:2.1s; }
+  .device.scary .blood-drip.drip-a .drop-fall{ animation-duration:4.6s; }
+  .device.scary .blood-drip.drip-b .drop-fall{ animation-duration:5.4s; animation-delay:0.8s; }
+  .device.scary .blood-drip.drip-c .drop-fall{ animation-duration:3.9s; animation-delay:1.6s; }
+  .device.scary .blood-drip.drip-d .drop-fall{ animation-duration:5.1s; animation-delay:0.4s; }
+  .device.scary .blood-drip.drip-e .drop-fall{ animation-duration:4.3s; animation-delay:2.1s; }
+  @keyframes bloodGrow{
+    0%{ transform:translateX(-50%) scaleY(0.92); }
+    70%{ transform:translateX(-50%) scaleY(1.1); }
+    88%{ transform:translateX(-50%) scaleY(0.97); }
+    100%{ transform:translateX(-50%) scaleY(0.92); }
+  }
+  @keyframes dropFall{
+    0%, 55%{ opacity:0; transform:translateX(-50%) translateY(0) scale(0.6); }
+    64%{ opacity:1; transform:translateX(-50%) translateY(0.3vmin) scale(1); }
+    100%{ opacity:0; transform:translateX(-50%) translateY(3.4vmin) scale(0.7); }
   }
 
   .stat-row{
@@ -243,9 +285,9 @@
   .quad-blue .cb-symbol{ bottom:26%; right:22%; }
 
   @media (prefers-reduced-motion: reduce){
-    .quad, .device, .power-led, .status-led, .wordmark, .tagline, .blood-drip{ transition-duration:0.01ms !important; animation:none !important; }
+    .quad, .device, .power-led, .status-led, .wordmark, .tagline, .blood-drip, .drop-fall{ transition-duration:0.01ms !important; animation:none !important; }
   }
-  .reduced-motion .quad, .reduced-motion .device, .reduced-motion .power-led, .reduced-motion .status-led, .reduced-motion .wordmark, .reduced-motion .tagline, .reduced-motion .blood-drip{
+  .reduced-motion .quad, .reduced-motion .device, .reduced-motion .power-led, .reduced-motion .status-led, .reduced-motion .wordmark, .reduced-motion .tagline, .reduced-motion .blood-drip, .reduced-motion .drop-fall{
     transition-duration:0.01ms !important; animation:none !important;
   }
 
@@ -506,11 +548,11 @@
         </div>
       </div>
       <div class="blood-drips" aria-hidden="true">
-        <div class="blood-drip drip-a"></div>
-        <div class="blood-drip drip-b"></div>
-        <div class="blood-drip drip-c"></div>
-        <div class="blood-drip drip-d"></div>
-        <div class="blood-drip drip-e"></div>
+        <div class="blood-drip drip-a"><span class="drop-fall"></span></div>
+        <div class="blood-drip drip-b"><span class="drop-fall"></span></div>
+        <div class="blood-drip drip-c"><span class="drop-fall"></span></div>
+        <div class="blood-drip drip-d"><span class="drop-fall"></span></div>
+        <div class="blood-drip drip-e"><span class="drop-fall"></span></div>
       </div>
     </div>
   </div>
