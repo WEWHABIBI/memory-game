@@ -498,7 +498,7 @@
         Every round you complete, one new random color is added to the end of the sequence &mdash; there's no time limit, so take your time.<br><br>
         Play with mouse, touch, or the keyboard (<b>Q</b>=green, <b>W</b>=red, <b>A</b>=yellow, <b>S</b>=blue).<br><br>
         With <b>Strict Mode</b> on, one mistake ends the run. Turn it off in Settings for a gentler game that just replays the current round after a slip.<br><br>
-        Pick a <b>Difficulty</b> in Settings: Normal plays at the classic pace, Hard is noticeably faster, Extra Hard flashes each light for half a second or less right from round one, and Hell Mode flashes for a quarter of a second or less. <b>Progressive</b> plays through all of them in one run, starting easy and ramping up to Hell Mode's extreme speed as you go. <b>Unbeatable</b> flashes every light for exactly 120 milliseconds &mdash; brutally fast, but not literally impossible.
+        Pick a <b>Difficulty</b> in Settings: Normal plays at the classic pace, Hard is noticeably faster, Extra Hard flashes each light for half a second or less right from round one, and Hell Mode flashes for a quarter of a second or less. <b>Progressive</b> plays through all of them in one run, starting easy and ramping up to Hell Mode's extreme speed as you go. <b>Unbeatable</b> flashes every light for exactly 80 milliseconds &mdash; brutally fast, but not literally impossible.
       </p>
       <div class="btnrow"><button class="solid alt" id="btn-howto-back">Back</button></div>
     </div>
@@ -539,7 +539,7 @@
   <div class="overlay hidden" id="ov-unbeatable-confirm" style="z-index:20;">
     <div class="modal" style="border-color:#8b0000; box-shadow:0 0 0 4px rgba(0,0,0,0.6), 0 0 30px rgba(139,0,0,0.5);">
       <h2 style="color:#ff2b2b; text-shadow:0 0 10px rgba(255,0,0,0.7);">Are You Sure?</h2>
-      <p>Unbeatable mode flashes each light for just 120 milliseconds, every round, forever. It is not meant to be won. Do you still want to play it?</p>
+      <p>Unbeatable mode flashes each light for just 80 milliseconds, every round, forever. It is not meant to be won. Do you still want to play it?</p>
       <div class="btnrow">
         <button class="solid" id="btn-unbeatable-confirm" style="background:#8b0000;">Yes, I Dare</button>
         <button class="solid alt" id="btn-unbeatable-cancel">Cancel</button>
@@ -596,7 +596,7 @@
     hard:       { mult:0.75,  floor:0.32 },
     extraHard:  { mult:0.55,  floor:0.18 },
     hell:       { mult:0.40,  floor:0.08 },
-    unbeatable: { mult:0.24, floor:0.24 } // flashes for exactly 120ms, every round
+    unbeatable: { mult:0.16, floor:0.16 } // flashes for exactly 80ms, every round
   };
 
   // "Progressive" isn't its own speed curve — it auto-advances through the
@@ -795,7 +795,7 @@
     hudHigh.textContent = String(game.highScore).padStart(3,'0');
     setDigits(ledWindow, game.score, 3);
     const activeDiff = resolvedDifficulty(round);
-    const diffTag = activeDiff==='hard' ? ' · HARD' : activeDiff==='extraHard' ? ' · XTRA' : activeDiff==='hell' ? ' · HELL' : activeDiff==='unbeatable' ? ' · 120MS' : '';
+    const diffTag = activeDiff==='hard' ? ' · HARD' : activeDiff==='extraHard' ? ' · XTRA' : activeDiff==='hell' ? ' · HELL' : activeDiff==='unbeatable' ? ' · 80MS' : '';
     ledCaption.textContent = 'RD ' + String(round).padStart(2,'0') + ' · HI ' + String(game.highScore).padStart(3,'0') + diffTag;
   }
 
